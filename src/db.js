@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/linguaroute';
+export const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/language-matcher';
 
 /**
  * A connection string safe to print. Never log MONGODB_URI directly: on a
@@ -28,8 +28,8 @@ export function redactUri(uri = MONGODB_URI) {
  * between invocations, while the global object in a warm container does.
  */
 const globalCache = globalThis;
-globalCache.__linguaroute ??= { conn: null, promise: null };
-const cache = globalCache.__linguaroute;
+globalCache.__languageMatcher ??= { conn: null, promise: null };
+const cache = globalCache.__languageMatcher;
 
 export async function connectDB(uri = MONGODB_URI) {
   if (cache.conn) return cache.conn;

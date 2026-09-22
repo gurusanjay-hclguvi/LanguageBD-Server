@@ -79,10 +79,22 @@ app.use((req, res, next) => {
  * public URLs, and seeing them turns "the browser says NetworkError" from a
  * guessing game into a one-line diff against your client's origin.
  */
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  // Actually attempt the connection rather than reporting whatever state a
+  // cold container happens to be in - otherwise a fresh function reports
+  // "disconnected" when the database is perfectly reachable. Never throws, so
+  // health stays answerable precisely when the database is not.
+  let dbError = null;
+  try {
+    await connectDB();
+  } catch (err) {
+    dbError = err.message;
+  }
+
   res.json({
     ok: dbState() === 'connected',
     db: dbState(),
+    dbError,
     uptime: Math.round(process.uptime()),
     cors: allowedOrigins.length ? allowedOrigins : 'any origin (CORS_ORIGIN not set)',
     yourOrigin: req.header('origin') ?? null,

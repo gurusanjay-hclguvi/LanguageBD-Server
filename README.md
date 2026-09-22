@@ -1,6 +1,6 @@
-# LinguaRoute — API
+# Language Matcher — API
 
-The routing service behind LinguaRoute: it decides **which BD should call which
+The routing service behind Language Matcher: it decides **which BD should call which
 learner, based on the languages they actually share.**
 
 Leads (learners) come in from every corner of India. Business Development
