@@ -136,6 +136,24 @@ must allow `0.0.0.0/0`.
 Check `https://<your-api>.vercel.app/api/health` returns
 `{"ok":true,"db":"connected"}`.
 
+> **Turn Deployment Protection off.** By default Vercel may protect deployments
+> with Vercel Authentication, which answers *every* request — including
+> `/api/health` — with a `302` to `vercel.com/sso-api` instead of reaching this
+> code. A browser fetch then fails with an opaque `NetworkError`. Fix it under
+> **Settings → Deployment Protection → Vercel Authentication → Disabled**.
+> Verify with curl, which shows the redirect plainly:
+>
+> ```bash
+> curl -i https://<your-api>.vercel.app/api/health | head -5
+> # 302 + "Location: https://vercel.com/sso-api?..."  => still protected
+> # 200 + {"ok":true,...}                             => good
+> ```
+
+Use the project's **production domain**, not the long per-deployment URL that
+contains a build hash (`<project>-<hash>-<scope>.vercel.app`). That hashed URL
+changes with every deployment, so anything pointed at it breaks on your next
+deploy.
+
 ### CORS
 
 `CORS_ORIGIN` is a comma-separated allowlist of origins permitted to call this
