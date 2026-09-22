@@ -5,12 +5,18 @@ import { applyLanguageResolution } from '../services/languageInference.js';
 /** A learner who filled a form and is waiting for a call. */
 const leadSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    phone: { type: String, trim: true },
-    email: { type: String, trim: true, lowercase: true },
-    city: { type: String, trim: true },
-    state: { type: String, trim: true },
-    course: { type: String, trim: true },
+    name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
+    phone: { type: String, trim: true, match: [/^$|^[0-9]{10}$/, 'Phone number must contain exactly 10 digits'] },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 254,
+      match: [/^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email address'],
+    },
+    city: { type: String, trim: true, maxlength: 80 },
+    state: { type: String, trim: true, maxlength: 80 },
+    course: { type: String, trim: true, maxlength: 120 },
     source: { type: String, trim: true, default: 'web' },
 
     // What a BD actually heard on a call - ground truth, and the only tier that

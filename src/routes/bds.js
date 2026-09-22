@@ -37,7 +37,16 @@ router.get('/', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const { name, email, phone, region, dailyCapacity, isActive, languages } = req.body ?? {};
-    if (!name) return res.status(400).json({ error: 'name is required' });
+    if (!name || String(name).trim().length < 2) return res.status(400).json({ error: 'name must be at least 2 characters' });
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return res.status(400).json({ error: 'Please provide a valid email address' });
+    }
+    if (phone && !/^[0-9]{10}$/.test(String(phone).trim())) {
+      return res.status(400).json({ error: 'Phone number must contain exactly 10 digits' });
+    }
+    if (dailyCapacity != null && (!Number.isInteger(Number(dailyCapacity)) || Number(dailyCapacity) < 1 || Number(dailyCapacity) > 500)) {
+      return res.status(400).json({ error: 'Daily capacity must be a whole number from 1 to 500' });
+    }
     const bd = await BD.create({
       name,
       email,
