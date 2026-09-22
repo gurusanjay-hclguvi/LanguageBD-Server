@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinguaRoute API</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #fbfbfa;
+        --ink: #131211;
+        --ink-2: #5c5a54;
+        --ink-3: #8b8982;
+        --rule: #e5e4de;
+        --accent: #2a78d6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #111110;
+          --ink: #f4f3ef;
+          --ink-2: #a5a39a;
+          --ink-3: #74726b;
+          --rule: #272725;
+          --accent: #3987e5;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        max-width: 34rem;
+        margin: 0 auto;
+        padding: 6rem 1.5rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: -0.011em;
+      }
+      p {
+        color: var(--ink-2);
+        line-height: 1.6;
+      }
+      ul {
+        list-style: none;
+        margin: 1.5rem 0 0;
+        padding: 0;
+        border-top: 1px solid var(--rule);
+      }
+      li {
+        border-bottom: 1px solid var(--rule);
+        padding: 0.75rem 0;
+        display: flex;
+        gap: 1rem;
+        align-items: baseline;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12.5px;
+      }
+      .method {
+        color: var(--ink-3);
+        font-size: 11px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        min-width: 3.5rem;
+      }
+      a {
+        color: var(--accent);
+      }
+      .note {
+        margin-top: 2.5rem;
+        border-left: 2px solid var(--rule);
+        padding-left: 1rem;
+        color: var(--ink-3);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>LinguaRoute API</h1>
+      <p>
+        The routing service for LinguaRoute. The interface is deployed separately — this host only
+        answers JSON.
+      </p>
+      <ul>
+        <li><span class="method">Get</span><code><a href="/api/health">/api/health</a></code></li>
+        <li><span class="method">Get</span><code><a href="/api/meta">/api/meta</a></code></li>
+        <li><span class="method">Get</span><code>/api/leads</code></li>
+        <li><span class="method">Get</span><code>/api/bds</code></li>
+        <li><span class="method">Get</span><code>/api/analytics/summary</code></li>
+        <li><span class="method">Post</span><code>/api/assignments/run</code></li>
+      </ul>
+      <p class="note">
+        Browser calls are restricted to the origins listed in <code>CORS_ORIGIN</code>. There is no
+        authentication: this is a demo service.
+      </p>
+    </main>
+  </body>
+</html>

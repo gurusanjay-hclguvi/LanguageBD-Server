@@ -1,0 +1,35 @@
+# Self-contained: this folder is its own repository, so it cannot rely on an
+# ignore file one level up. Patterns without a leading slash match at any depth.
+
+# dependencies
+node_modules/
+.npm/
+
+# environment - never commit real credentials, but keep the example
+.env
+.env.*
+!.env.example
+
+# vercel
+.vercel/
+
+# logs
+*.log
+npm-debug.log*
+logs/
+
+# test / coverage
+coverage/
+.nyc_output/
+
+# editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# local scratch
+*.local
+tmp/
