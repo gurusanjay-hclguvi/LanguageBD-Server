@@ -5,6 +5,7 @@ import { BD } from '../models/BD.js';
 import { Lead } from '../models/Lead.js';
 import { CallLog } from '../models/CallLog.js';
 import { runAssignment } from '../services/routing.js';
+import { LANGUAGE_CODES } from '../data/languages.js';
 
 /**
  * Deterministic demo data.
@@ -250,6 +251,7 @@ async function seed() {
   const assigned = await Lead.find({ status: 'assigned' }).lean();
   const calls = [];
   const contacted = [];
+  const barriers = [];
 
   assigned.forEach((lead, i) => {
     if (i % 5 === 4) return; // leave some leads not yet called
@@ -264,11 +266,28 @@ async function seed() {
     else if (chance(0.2)) outcome = 'not_interested';
     else outcome = 'connected';
 
+    /*
+     * A barrier call is where the BD learns what the learner really speaks.
+     * Most of the time that matches what we had on file; sometimes it does not,
+     * and those are the rows that make the inference-accuracy report worth
+     * reading rather than a flat 100%.
+     */
+    let observed = [];
+    if (outcome === 'language_barrier') {
+      const onFile = lead.preferredLanguages?.[0] ?? lead.inferredLanguages?.[0] ?? 'english';
+      // A third of the time the learner turns out to speak something the region
+      // guess never listed. Those are the rows that make inference accuracy a
+      // real measurement instead of a guaranteed 100%.
+      const outside = LANGUAGE_CODES.filter((c) => !(lead.inferredLanguages ?? []).includes(c));
+      observed = chance(0.35) && outside.length ? [pick(outside)] : [onFile];
+    }
+
     const when = daysAgo(day, 10 + (i % 8));
     calls.push({
       lead: lead._id,
       bd: lead.assignedBD,
       outcome,
+      observedLanguages: observed,
       durationSec: outcome === 'no_answer' ? 0 : 60 + Math.floor(rand() * 540),
       notes:
         outcome === 'language_barrier'
@@ -277,13 +296,51 @@ async function seed() {
       createdAt: when,
       updatedAt: when,
     });
-    contacted.push(lead._id);
+
+    if (outcome === 'language_barrier') {
+      // Mirror what the live handler does: record the confirmed language and the
+      // BD who failed, and put the lead back in the pool for re-routing.
+      barriers.push({
+        leadId: lead._id,
+        bdId: lead.assignedBD,
+        observed,
+        when,
+      });
+    } else {
+      contacted.push(lead._id);
+    }
   });
 
   await CallLog.insertMany(calls, { timestamps: false });
   await Lead.updateMany({ _id: { $in: contacted } }, { $set: { status: 'contacted' } });
+
+  await Promise.all(
+    barriers.map((b) =>
+      Lead.updateOne(
+        { _id: b.leadId },
+        {
+          $set: {
+            confirmedLanguages: b.observed,
+            languageSource: 'confirmed',
+            languageConfidence: 1,
+            languageBasis: 'Confirmed on a call, ' + b.when.toISOString().slice(0, 10),
+            status: 'new',
+            assignedBD: null,
+            matchScore: null,
+            matchReasons: [],
+            assignmentMode: null,
+            unroutableReason: 'Returned to the pool after a language-barrier call',
+            failedBDs: [{ bd: b.bdId, at: b.when, reason: 'Language barrier' }],
+          },
+        },
+        { timestamps: false },
+      ),
+    ),
+  );
+
   const barrierCount = calls.filter((c) => c.outcome === 'language_barrier').length;
   console.log('[seed] logged ' + calls.length + ' calls (' + barrierCount + ' language barriers)');
+  console.log('[seed] ' + barriers.length + ' leads carry a confirmed language + a failed BD');
 
   // --- a fresh unrouted batch, so the demo has something to route ----------
   const fresh = [];

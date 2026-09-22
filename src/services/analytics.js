@@ -14,7 +14,12 @@ const rate = (num, den) => (den ? Math.round((num / den) * 1000) / 10 : 0);
  */
 export async function analyticsSummary() {
   const [leads, bds, calls] = await Promise.all([
-    Lead.find().select('name status assignedBD matchScore preferredLanguages inferredLanguages languageSource coverageGapLanguage state').lean(),
+    Lead.find()
+      .select(
+        'name status assignedBD matchScore confirmedLanguages preferredLanguages ' +
+          'inferredLanguages languageSource coverageGapLanguage state',
+      )
+      .lean(),
     BD.find().lean(),
     CallLog.find().populate('lead', 'name').populate('bd', 'name').sort({ createdAt: -1 }).lean(),
   ]);
@@ -34,8 +39,41 @@ export async function analyticsSummary() {
   const routed = statusCounts.assigned + statusCounts.contacted;
 
   // ---- language provenance -------------------------------------------------
-  const sourceCounts = { explicit: 0, inferred: 0, unknown: 0 };
+  const sourceCounts = { confirmed: 0, explicit: 0, inferred: 0, unknown: 0 };
   for (const l of leads) sourceCounts[l.languageSource] = (sourceCounts[l.languageSource] ?? 0) + 1;
+
+  /*
+   * ---- is the region guess any good? ---------------------------------------
+   * Once a BD confirms a language on a call we can grade the inference that
+   * preceded it. A "hit" means the language they actually speak was in the list
+   * we guessed from their region. Broken down by state, this is a to-do list
+   * for data/regionLanguages.js rather than an opinion about it.
+   */
+  const graded = leads.filter((l) => l.confirmedLanguages?.length && l.inferredLanguages?.length);
+  const byState = {};
+  let hits = 0;
+
+  for (const l of graded) {
+    const hit = l.inferredLanguages.includes(l.confirmedLanguages[0]);
+    if (hit) hits += 1;
+    const key = l.state?.trim() || 'Unknown region';
+    byState[key] ??= { state: key, graded: 0, hits: 0 };
+    byState[key].graded += 1;
+    if (hit) byState[key].hits += 1;
+  }
+
+  const inferenceAccuracy = {
+    graded: graded.length,
+    hits,
+    accuracy: rate(hits, graded.length),
+    byState: Object.values(byState)
+      .map((row) => ({ ...row, accuracy: rate(row.hits, row.graded) }))
+      .sort((a, b) => a.accuracy - b.accuracy || b.graded - a.graded),
+    note:
+      graded.length === 0
+        ? 'No calls have confirmed a language yet - log call outcomes to start grading the region guesses.'
+        : 'Measured against languages BDs confirmed on real calls.',
+  };
 
   // ---- demand vs supply, per language -------------------------------------
   const demand = {};
@@ -153,6 +191,7 @@ export async function analyticsSummary() {
     },
     statusCounts,
     sourceCounts,
+    inferenceAccuracy,
     languageCoverage,
     coverageGaps,
     bdLoad,

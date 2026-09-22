@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { BD } from '../models/BD.js';
 import { Lead } from '../models/Lead.js';
 import { normalizeLanguage } from '../data/languages.js';
+import { runAssignment } from '../services/routing.js';
 
 const router = Router();
 
@@ -46,7 +47,19 @@ router.post('/', async (req, res, next) => {
       isActive: isActive ?? true,
       languages: normalizeSpoken(languages),
     });
-    res.status(201).json(bd);
+    
+    // Automatically route unroutable leads that match this BD's languages
+    const routingResult = await runAssignment();
+    
+    // Return BD with routing results
+    res.status(201).json({ 
+      ...bd.toObject(),
+      routing: {
+        assigned: routingResult.assigned,
+        unroutable: routingResult.unroutable,
+        newAssignments: routingResult.sample.filter(s => s.bd === name)
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -55,10 +68,27 @@ router.post('/', async (req, res, next) => {
 router.patch('/:id', async (req, res, next) => {
   try {
     const update = { ...req.body };
+    const languagesChanged = update.languages && JSON.stringify(update.languages) !== JSON.stringify(normalizeSpoken(update.languages));
     if (update.languages) update.languages = normalizeSpoken(update.languages);
     const bd = await BD.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!bd) return res.status(404).json({ error: 'BD not found' });
-    res.json(bd);
+    
+    // If languages or isActive changed, re-route leads
+    let routingResult = null;
+    if (languagesChanged || 'isActive' in req.body) {
+      routingResult = await runAssignment();
+    }
+    
+    res.json({
+      ...bd.toObject(),
+      ...(routingResult && {
+        routing: {
+          assigned: routingResult.assigned,
+          unroutable: routingResult.unroutable,
+          newAssignments: routingResult.sample.filter(s => s.bd === bd.name)
+        }
+      })
+    });
   } catch (err) {
     next(err);
   }

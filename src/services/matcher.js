@@ -18,6 +18,12 @@ export const WEIGHTS = {
 
 const pct = (n) => Math.round(n * 100);
 
+/** Has this BD already burnt a call on this learner over language? */
+function hasAlreadyFailed(lead, bd) {
+  if (!lead?.failedBDs?.length || !bd?._id) return false;
+  return lead.failedBDs.some((entry) => String(entry?.bd) === String(bd._id));
+}
+
 /**
  * Score one (lead, BD) pair. The hard gate is language: with no shared
  * language the BD is ineligible, full stop. That is the whole point of the
@@ -94,7 +100,13 @@ export function scoreMatch(lead, bd, load = 0) {
 
   let eligible = true;
   let blocked = null;
-  if (bd.isActive === false) {
+  if (hasAlreadyFailed(lead, bd)) {
+    // Sharing a language on paper is not enough once a real call has proved
+    // otherwise - handing the lead back to the same BD repeats the mistake.
+    eligible = false;
+    blocked = 'already-failed';
+    reasons.push(bd.name + ' already hit a language barrier with this learner');
+  } else if (bd.isActive === false) {
     eligible = false;
     blocked = 'inactive';
     reasons.push(bd.name + ' is marked inactive');
@@ -164,13 +176,20 @@ export function assignLeads(leads, bds, loadMap = {}) {
     if (!winner) {
       const langs = effectiveLanguages(lead);
       const blockedByCapacity = ranked.some((r) => r.blocked === 'capacity');
-      unroutable.push({
-        lead,
-        coverageGapLanguage: langs[0] ?? null,
-        reason: blockedByCapacity
-          ? 'Every ' + languageLabel(langs[0]) + '-speaking BD is at capacity today'
-          : 'No BD on the team speaks ' + labelList(langs),
-      });
+      const blockedByPastFailure = ranked.some((r) => r.blocked === 'already-failed');
+
+      let reason;
+      if (blockedByCapacity) {
+        reason = 'Every ' + languageLabel(langs[0]) + '-speaking BD is at capacity today';
+      } else if (blockedByPastFailure) {
+        reason =
+          'The only BDs who share a language with this learner have already hit a ' +
+          'language barrier with them';
+      } else {
+        reason = 'No BD on the team speaks ' + labelList(langs);
+      }
+
+      unroutable.push({ lead, coverageGapLanguage: langs[0] ?? null, reason });
       continue;
     }
 

@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { Lead } from '../models/Lead.js';
 import { normalizeLanguages } from '../data/languages.js';
 import { resolveLanguages } from '../services/languageInference.js';
+import { runAssignment } from '../services/routing.js';
 
 const router = Router();
 // 4 MB, deliberately under Vercel's 4.5 MB serverless request-body ceiling:
@@ -122,6 +123,9 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     // create() (not insertMany) so the pre-validate language resolution runs.
     const inserted = docs.length ? await Lead.create(docs) : [];
 
+    // Route immediately - no manual "assign" step for the common case.
+    const routing = inserted.length ? await runAssignment() : null;
+
     res.status(201).json({
       importBatchId,
       rows: rows.length,
@@ -129,6 +133,10 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       skipped: errors.filter((e) => e.severity !== 'warning').length,
       errors,
       preview,
+      routing: routing && {
+        assigned: routing.assigned,
+        unroutable: routing.unroutable,
+      },
     });
   } catch (err) {
     next(err);

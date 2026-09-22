@@ -11,6 +11,7 @@ import assignmentsRouter from './routes/assignments.js';
 import callsRouter from './routes/calls.js';
 import queueRouter from './routes/queue.js';
 import analyticsRouter from './routes/analytics.js';
+import notificationsRouter from './routes/notifications.js';
 import { LANGUAGES } from './data/languages.js';
 import { STATE_LANGUAGES } from './data/regionLanguages.js';
 
@@ -131,6 +132,7 @@ app.use('/api/leads', leadsRouter);
 app.use('/api/assignments', assignmentsRouter);
 app.use('/api/calls', callsRouter);
 app.use('/api/queue', queueRouter);
+app.use('/api/notifications', notificationsRouter);
 app.use('/api/analytics', analyticsRouter);
 
 app.use((req, res) =>

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { Lead } from '../models/Lead.js';
+import { BD } from '../models/BD.js';
 import { normalizeLanguages } from '../data/languages.js';
-import { matchesForLead, assignManually } from '../services/routing.js';
+import { matchesForLead, assignManually, runAssignment } from '../services/routing.js';
+import { effectiveLanguages } from '../services/languageInference.js';
 
 const router = Router();
 
@@ -19,12 +21,23 @@ router.get('/', async (req, res, next) => {
       const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.$and = [{ $or: [{ name: rx }, { phone: rx }, { email: rx }, { city: rx }] }];
     }
-    const leads = await Lead.find(filter)
-      .populate('assignedBD', 'name languages region')
-      .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .exec();
-    res.json(leads);
+    const [leads, bds] = await Promise.all([
+      Lead.find(filter)
+        .populate('assignedBD', 'name languages region')
+        .sort({ createdAt: -1 })
+        .limit(Number(limit))
+        .exec(),
+      BD.find({ isActive: { $ne: false } }).select('languages').lean(),
+    ]);
+    res.json(
+      leads.map((lead) => {
+        const leadLanguages = effectiveLanguages(lead);
+        const hasAvailableMatch = bds.some((bd) =>
+          (bd.languages ?? []).some((language) => leadLanguages.includes(language.code)),
+        );
+        return { ...lead.toObject(), hasAvailableMatch };
+      }),
+    );
   } catch (err) {
     next(err);
   }
@@ -44,7 +57,11 @@ router.post('/', async (req, res, next) => {
       source: source || 'manual',
       preferredLanguages: normalizeLanguages(preferredLanguages),
     });
-    res.status(201).json(lead);
+
+    // Route immediately - no manual "assign" step for the common case.
+    await runAssignment();
+    const routed = await Lead.findById(lead._id).populate('assignedBD', 'name languages region').exec();
+    res.status(201).json(routed);
   } catch (err) {
     next(err);
   }

@@ -16,10 +16,11 @@ interface is a separate repository and a separate deployment.
 
 ## What it does
 
-1. **Works out what a learner speaks.** A language declared on the form is
-   treated as fact. When it is blank, the learner's state or city is used to
-   infer the likely languages — and the response always says which of the two it
-   was, so the client can never present a guess as a fact.
+1. **Works out what a learner speaks**, in four tiers of trust: a language a BD
+   **confirmed on a call** beats one **declared** on the form, which beats one
+   **inferred** from their state or city, which beats **unknown**. The response
+   always says which tier it used, so the client can never present a guess as a
+   fact.
 
 2. **Scores every BD against every lead.** A shared language is a hard gate: no
    common language means the BD is ineligible, full stop. Past that gate the
@@ -38,6 +39,15 @@ interface is a separate repository and a separate deployment.
 5. **Measures itself.** `language_barrier` is a first-class call outcome. Logging
    one returns the lead to the pool for re-routing and moves the numbers on
    `/api/analytics/summary`.
+
+6. **Learns from every call.** A call can record `observedLanguages` — what the
+   BD actually heard. That is promoted onto the lead as the `confirmed` tier, so
+   the correction drives every future routing decision. A `language_barrier` also
+   records the BD on `lead.failedBDs`, which makes them ineligible for that lead,
+   so a re-routed lead is never handed back to the person it just failed with.
+   Because confirmations grade the guesses that preceded them,
+   `/api/analytics/summary` reports **inference accuracy per state** — a to-do
+   list for `data/regionLanguages.js` rather than an opinion about it.
 
 ## How the score is built
 
@@ -88,7 +98,7 @@ before routing was switched on and a low one after.
 | POST | `/api/leads/:id/assign` | manual override; flags a language mismatch |
 | POST | `/api/assignments/run` | route every waiting lead |
 | GET | `/api/queue/:bdId` | one BD's queue, with the language to open in |
-| POST | `/api/calls` | log a call outcome |
+| POST | `/api/calls` | log a call outcome; `observedLanguages` required on `language_barrier` |
 | GET | `/api/analytics/summary` | every number the dashboard needs, in one payload |
 
 ## Layout
